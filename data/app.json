@@ -1,0 +1,1213 @@
+{
+  "intent": {
+    "app_name": "E-commerce Platform",
+    "app_type": "ecommerce",
+    "entities": [
+      {
+        "name": "products",
+        "description": "items for sale",
+        "attributes": [
+          "price",
+          "description",
+          "image"
+        ]
+      },
+      {
+        "name": "carts",
+        "description": "temporary storage for products",
+        "attributes": [
+          "items",
+          "total"
+        ]
+      },
+      {
+        "name": "orders",
+        "description": "completed purchases",
+        "attributes": [
+          "date",
+          "total",
+          "status"
+        ]
+      },
+      {
+        "name": "payments",
+        "description": "financial transactions",
+        "attributes": [
+          "amount",
+          "method"
+        ]
+      },
+      {
+        "name": "admin dashboard",
+        "description": "backend control panel",
+        "attributes": [
+          "analytics",
+          "settings"
+        ]
+      }
+    ],
+    "roles": [
+      {
+        "name": "admin",
+        "permissions": [
+          "view analytics",
+          "manage settings"
+        ]
+      },
+      {
+        "name": "user",
+        "permissions": [
+          "view products",
+          "add to cart",
+          "make payment"
+        ]
+      }
+    ],
+    "features": [
+      {
+        "name": "view products",
+        "description": "display available products",
+        "requires_auth": false,
+        "roles_allowed": [
+          "user"
+        ]
+      },
+      {
+        "name": "add to cart",
+        "description": "store products for later purchase",
+        "requires_auth": false,
+        "roles_allowed": [
+          "user"
+        ]
+      },
+      {
+        "name": "make payment",
+        "description": "complete purchase",
+        "requires_auth": false,
+        "roles_allowed": [
+          "user"
+        ]
+      },
+      {
+        "name": "view analytics",
+        "description": "display sales data",
+        "requires_auth": true,
+        "roles_allowed": [
+          "admin"
+        ]
+      },
+      {
+        "name": "manage settings",
+        "description": "configure platform settings",
+        "requires_auth": true,
+        "roles_allowed": [
+          "admin"
+        ]
+      }
+    ],
+    "integrations": [
+      "payment gateways",
+      "shipping providers"
+    ],
+    "assumptions": [
+      "users can create accounts",
+      "products have unique IDs"
+    ]
+  },
+  "system_design": {
+    "entities": [
+      {
+        "name": "products",
+        "description": "items for sale",
+        "attributes": [
+          "price",
+          "description",
+          "image"
+        ]
+      },
+      {
+        "name": "carts",
+        "description": "temporary storage for products",
+        "attributes": [
+          "items",
+          "total"
+        ]
+      },
+      {
+        "name": "orders",
+        "description": "completed purchases",
+        "attributes": [
+          "date",
+          "total",
+          "status"
+        ]
+      },
+      {
+        "name": "payments",
+        "description": "financial transactions",
+        "attributes": [
+          "amount",
+          "method"
+        ]
+      },
+      {
+        "name": "admin dashboard",
+        "description": "backend control panel",
+        "attributes": [
+          "analytics",
+          "settings"
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "cart contains products",
+        "description": "many-to-many relationship between carts and products",
+        "from_entity": "carts",
+        "to_entity": "products",
+        "type": "many_to_many"
+      },
+      {
+        "name": "order contains products",
+        "description": "many-to-many relationship between orders and products",
+        "from_entity": "orders",
+        "to_entity": "products",
+        "type": "many_to_many"
+      },
+      {
+        "name": "payment is related to order",
+        "description": "one-to-one relationship between payments and orders",
+        "from_entity": "payments",
+        "to_entity": "orders",
+        "type": "one_to_one"
+      },
+      {
+        "name": "admin dashboard is used by admin",
+        "description": "one-to-one relationship between admin dashboard and admin",
+        "from_entity": "admin dashboard",
+        "to_entity": "admin",
+        "type": "one_to_one"
+      }
+    ],
+    "pages": [
+      {
+        "name": "Product List Page",
+        "path": "/products",
+        "description": "display available products",
+        "access_roles": [
+          "user"
+        ]
+      },
+      {
+        "name": "Cart Page",
+        "path": "/cart",
+        "description": "store products for later purchase",
+        "access_roles": [
+          "user"
+        ]
+      },
+      {
+        "name": "Payment Page",
+        "path": "/payment",
+        "description": "complete purchase",
+        "access_roles": [
+          "user"
+        ]
+      },
+      {
+        "name": "Admin Dashboard",
+        "path": "/admin",
+        "description": "configure platform settings",
+        "access_roles": [
+          "admin"
+        ]
+      }
+    ],
+    "api_groups": [
+      {
+        "name": "Product API",
+        "description": "manage products",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/products",
+            "description": "display available products"
+          },
+          {
+            "method": "POST",
+            "path": "/products",
+            "description": "create new product"
+          }
+        ]
+      },
+      {
+        "name": "Cart API",
+        "description": "manage cart",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/cart",
+            "description": "display cart contents"
+          },
+          {
+            "method": "POST",
+            "path": "/cart",
+            "description": "add product to cart"
+          }
+        ]
+      },
+      {
+        "name": "Order API",
+        "description": "manage orders",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/orders",
+            "description": "display completed orders"
+          },
+          {
+            "method": "POST",
+            "path": "/orders",
+            "description": "create new order"
+          }
+        ]
+      },
+      {
+        "name": "Payment API",
+        "description": "manage payments",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/payments",
+            "description": "display completed payments"
+          },
+          {
+            "method": "POST",
+            "path": "/payments",
+            "description": "create new payment"
+          }
+        ]
+      },
+      {
+        "name": "Admin API",
+        "description": "manage admin dashboard",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/admin/analytics",
+            "description": "display sales data"
+          },
+          {
+            "method": "POST",
+            "path": "/admin/settings",
+            "description": "configure platform settings"
+          }
+        ]
+      }
+    ],
+    "flows": [
+      {
+        "name": "User Checkout Flow",
+        "steps": [
+          "User opens Product List Page",
+          "User selects product to purchase",
+          "User adds product to cart",
+          "User views Cart Page",
+          "User makes payment",
+          "User receives confirmation"
+        ]
+      },
+      {
+        "name": "Admin Analytics Flow",
+        "steps": [
+          "Admin opens Admin Dashboard",
+          "Admin views analytics",
+          "Admin configures platform settings"
+        ]
+      }
+    ]
+  },
+  "db_schema": {
+    "tables": [
+      {
+        "name": "products",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "price",
+            "type": "float",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "image",
+            "type": "string",
+            "required": false,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "carts",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "items",
+            "type": "json",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "total",
+            "type": "float",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "orders",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "date",
+            "type": "datetime",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "total",
+            "type": "float",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "payments",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "method",
+            "type": "string",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "admin_dashboard",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "analytics",
+            "type": "json",
+            "required": false,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "settings",
+            "type": "json",
+            "required": false,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "users",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "role",
+            "type": "string",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": null,
+            "enum_values": [
+              "user",
+              "admin"
+            ]
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "cart_products",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "cart_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "carts.id",
+            "enum_values": null
+          },
+          {
+            "name": "product_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "products.id",
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "order_products",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "order_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "orders.id",
+            "enum_values": null
+          },
+          {
+            "name": "product_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "products.id",
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "payments_orders",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "payment_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "payments.id",
+            "enum_values": null
+          },
+          {
+            "name": "order_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "orders.id",
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      },
+      {
+        "name": "admin_dashboard_admins",
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "unique": true,
+            "default": null,
+            "references": null,
+            "enum_values": null
+          },
+          {
+            "name": "admin_dashboard_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "admin_dashboard.id",
+            "enum_values": null
+          },
+          {
+            "name": "admin_id",
+            "type": "foreign_key",
+            "required": true,
+            "unique": false,
+            "default": null,
+            "references": "users.id",
+            "enum_values": null
+          }
+        ],
+        "indexes": []
+      }
+    ]
+  },
+  "api_schema": {
+    "base_path": "/api/v1",
+    "endpoints": [
+      {
+        "path": "/products",
+        "method": "GET",
+        "summary": "Get all products",
+        "roles_allowed": [
+          "user"
+        ],
+        "request_fields": [
+          {
+            "name": "page",
+            "type": "integer",
+            "required": false,
+            "source": "query"
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "required": false,
+            "source": "query"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "products.id"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "source": "products.name"
+          },
+          {
+            "name": "price",
+            "type": "float",
+            "required": true,
+            "source": "products.price"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/products",
+        "method": "POST",
+        "summary": "Create new product",
+        "roles_allowed": [
+          "admin"
+        ],
+        "request_fields": [
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "source": "body"
+          },
+          {
+            "name": "price",
+            "type": "float",
+            "required": true,
+            "source": "body"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "products.id"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "required": true,
+            "source": "products.name"
+          },
+          {
+            "name": "price",
+            "type": "float",
+            "required": true,
+            "source": "products.price"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/cart",
+        "method": "GET",
+        "summary": "Get cart contents",
+        "roles_allowed": [
+          "user"
+        ],
+        "request_fields": [],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "carts.id"
+          },
+          {
+            "name": "items",
+            "type": "array",
+            "required": true,
+            "source": "carts.items"
+          },
+          {
+            "name": "total",
+            "type": "float",
+            "required": true,
+            "source": "carts.total"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/cart",
+        "method": "POST",
+        "summary": "Add product to cart",
+        "roles_allowed": [
+          "user"
+        ],
+        "request_fields": [
+          {
+            "name": "product_id",
+            "type": "integer",
+            "required": true,
+            "source": "body"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "carts.id"
+          },
+          {
+            "name": "items",
+            "type": "array",
+            "required": true,
+            "source": "carts.items"
+          },
+          {
+            "name": "total",
+            "type": "float",
+            "required": true,
+            "source": "carts.total"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/orders",
+        "method": "GET",
+        "summary": "Get all orders",
+        "roles_allowed": [
+          "user"
+        ],
+        "request_fields": [
+          {
+            "name": "page",
+            "type": "integer",
+            "required": false,
+            "source": "query"
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "required": false,
+            "source": "query"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "orders.id"
+          },
+          {
+            "name": "date",
+            "type": "datetime",
+            "required": true,
+            "source": "orders.date"
+          },
+          {
+            "name": "total",
+            "type": "float",
+            "required": true,
+            "source": "orders.total"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/orders",
+        "method": "POST",
+        "summary": "Create new order",
+        "roles_allowed": [
+          "admin"
+        ],
+        "request_fields": [
+          {
+            "name": "product_id",
+            "type": "integer",
+            "required": true,
+            "source": "body"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "orders.id"
+          },
+          {
+            "name": "date",
+            "type": "datetime",
+            "required": true,
+            "source": "orders.date"
+          },
+          {
+            "name": "total",
+            "type": "float",
+            "required": true,
+            "source": "orders.total"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/payments",
+        "method": "GET",
+        "summary": "Get all payments",
+        "roles_allowed": [
+          "user"
+        ],
+        "request_fields": [
+          {
+            "name": "page",
+            "type": "integer",
+            "required": false,
+            "source": "query"
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "required": false,
+            "source": "query"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "payments.id"
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "required": true,
+            "source": "payments.amount"
+          },
+          {
+            "name": "method",
+            "type": "string",
+            "required": true,
+            "source": "payments.method"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/payments",
+        "method": "POST",
+        "summary": "Create new payment",
+        "roles_allowed": [
+          "admin"
+        ],
+        "request_fields": [
+          {
+            "name": "amount",
+            "type": "float",
+            "required": true,
+            "source": "body"
+          },
+          {
+            "name": "method",
+            "type": "string",
+            "required": true,
+            "source": "body"
+          }
+        ],
+        "response_fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "required": true,
+            "source": "payments.id"
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "required": true,
+            "source": "payments.amount"
+          },
+          {
+            "name": "method",
+            "type": "string",
+            "required": true,
+            "source": "payments.method"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/admin/analytics",
+        "method": "GET",
+        "summary": "Get analytics",
+        "roles_allowed": [
+          "admin"
+        ],
+        "request_fields": [],
+        "response_fields": [
+          {
+            "name": "sales",
+            "type": "integer",
+            "required": true,
+            "source": "analytics.sales"
+          },
+          {
+            "name": "revenue",
+            "type": "float",
+            "required": true,
+            "source": "analytics.revenue"
+          }
+        ],
+        "auth_required": true
+      },
+      {
+        "path": "/admin/settings",
+        "method": "POST",
+        "summary": "Update settings",
+        "roles_allowed": [
+          "admin"
+        ],
+        "request_fields": [
+          {
+            "name": "theme",
+            "type": "string",
+            "required": true,
+            "source": "body"
+          }
+        ],
+        "response_fields": [],
+        "auth_required": true
+      }
+    ]
+  },
+  "ui_schema": {
+    "pages": [
+      {
+        "name": "Product List Page",
+        "path": "/products",
+        "roles_allowed": [],
+        "components": [],
+        "layout": "default"
+      },
+      {
+        "name": "Cart Page",
+        "path": "/cart",
+        "roles_allowed": [],
+        "components": [],
+        "layout": "default"
+      },
+      {
+        "name": "Payment Page",
+        "path": "/payment",
+        "roles_allowed": [],
+        "components": [],
+        "layout": "default"
+      },
+      {
+        "name": "Admin Dashboard",
+        "path": "/admin",
+        "roles_allowed": [],
+        "components": [],
+        "layout": "default"
+      }
+    ],
+    "nav_items": [],
+    "entities": [
+      {
+        "name": "products",
+        "description": "items for sale",
+        "attributes": [
+          "price",
+          "description",
+          "image"
+        ]
+      },
+      {
+        "name": "carts",
+        "description": "temporary storage for products",
+        "attributes": [
+          "items",
+          "total"
+        ]
+      },
+      {
+        "name": "orders",
+        "description": "completed purchases",
+        "attributes": [
+          "date",
+          "total",
+          "status"
+        ]
+      },
+      {
+        "name": "payments",
+        "description": "financial transactions",
+        "attributes": [
+          "amount",
+          "method"
+        ]
+      },
+      {
+        "name": "admin dashboard",
+        "description": "backend control panel",
+        "attributes": [
+          "analytics",
+          "settings"
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "cart contains products",
+        "description": "many-to-many relationship between carts and products",
+        "from_entity": "carts",
+        "to_entity": "products",
+        "type": "many_to_many"
+      },
+      {
+        "name": "order contains products",
+        "description": "many-to-many relationship between orders and products",
+        "from_entity": "orders",
+        "to_entity": "products",
+        "type": "many_to_many"
+      },
+      {
+        "name": "payment is related to order",
+        "description": "one-to-one relationship between payments and orders",
+        "from_entity": "payments",
+        "to_entity": "orders",
+        "type": "one_to_one"
+      },
+      {
+        "name": "admin dashboard is used by admin",
+        "description": "one-to-one relationship between admin dashboard and admin",
+        "from_entity": "admin dashboard",
+        "to_entity": "admin",
+        "type": "one_to_one"
+      }
+    ],
+    "flows": [
+      {
+        "name": "User Checkout Flow",
+        "steps": [
+          "User opens Product List Page",
+          "User selects product to purchase",
+          "User adds product to cart",
+          "User views Cart Page",
+          "User makes payment",
+          "User receives confirmation"
+        ]
+      },
+      {
+        "name": "Admin Analytics Flow",
+        "steps": [
+          "Admin opens Admin Dashboard",
+          "Admin views analytics",
+          "Admin configures platform settings"
+        ]
+      }
+    ]
+  },
+  "auth_schema": {
+    "strategy": "jwt",
+    "token_expiry_seconds": 86400,
+    "roles": [
+      {
+        "name": "Admin",
+        "permissions": [
+          {
+            "resource": "*",
+            "actions": [
+              "create",
+              "read",
+              "update",
+              "delete"
+            ]
+          }
+        ],
+        "can_access_pages": [
+          "/admin"
+        ]
+      },
+      {
+        "name": "User",
+        "permissions": [
+          {
+            "resource": "*",
+            "actions": [
+              "read"
+            ]
+          }
+        ],
+        "can_access_pages": [
+          "/products",
+          "/cart",
+          "/payment"
+        ]
+      }
+    ],
+    "public_routes": [
+      "/login",
+      "/register"
+    ]
+  }
+}
