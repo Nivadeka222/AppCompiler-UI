@@ -14,6 +14,8 @@ export const STAGES = [
 export type StageUpdate = {
   stage: string;
   done: boolean;
+  retrying?: boolean;
+  attempt?: number;
   data?: any;
 };
 

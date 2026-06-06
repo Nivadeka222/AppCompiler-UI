@@ -1,6 +1,6 @@
 "use client";
 import { generateAppStream, STAGES } from "../lib/api";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
 type AppData = {
@@ -14,6 +14,249 @@ type AppData = {
 
 type StageStatus = "pending" | "running" | "done";
 
+// ─── Preview HTML builder ────────────────────────────────────────────────────
+
+function buildPreviewHtml(appData: AppData): string {
+  const appName = appData.intent?.app_name ?? "App";
+  const pages: any[] = appData.system_design?.pages ?? [];
+  const endpoints: any[] = appData.api_schema?.endpoints ?? [];
+  const tables: any[] = appData.db_schema?.tables ?? [];
+
+  // Mock value generator
+  const mockVal = (name: string, type: string, idx: number): string => {
+    const n = name.toLowerCase();
+    if (n === "id") return String(idx + 1);
+    if (n.includes("email")) return `user${idx + 1}@example.com`;
+    if (n.includes("name")) return ["Alice", "Bob", "Carol"][idx % 3];
+    if (n.includes("price") || n.includes("amount") || n.includes("total"))
+      return `$${(9.99 + idx * 10).toFixed(2)}`;
+    if (n.includes("date")) return `2024-0${idx + 1}-15`;
+    if (n.includes("status")) return ["active", "pending", "completed"][idx % 3];
+    if (n.includes("method")) return ["stripe", "paypal", "card"][idx % 3];
+    if (n.includes("image")) return `https://picsum.photos/seed/${idx + 1}/60/60`;
+    if (type === "boolean") return idx % 2 === 0 ? "true" : "false";
+    if (type === "integer") return String(idx * 7 + 1);
+    if (type === "float") return (idx * 3.14).toFixed(2);
+    return `Sample ${name} ${idx + 1}`;
+  };
+
+  const endpointsForPath = (path: string) =>
+    endpoints.filter((e) => e.path === path);
+
+  const tableForPath = (path: string) => {
+    const seg = path.replace(/^\//, "").split("/")[0];
+    return tables.find((t) => t.name.toLowerCase().includes(seg.toLowerCase()));
+  };
+
+  const renderPage = (page: any): string => {
+    const path = page.path ?? "";
+    const pageEps = endpointsForPath(path);
+    const getEp = pageEps.find((e: any) => e.method === "GET");
+    const postEp = pageEps.find((e: any) => e.method === "POST");
+    const dbTable = tableForPath(path);
+    const isAdmin = path.includes("admin");
+    let html = `<div class="page" id="page-${path.replace(/\//g, "_")}">`;
+    html += `<h1 class="page-title">${page.name}</h1>`;
+
+    // Admin: stat cards + bar chart
+    if (isAdmin) {
+      const metrics = [
+        { label: "Total Revenue", value: "$48,200" },
+        { label: "Orders", value: "1,284" },
+        { label: "Users", value: "392" },
+        { label: "Products", value: "64" },
+      ];
+      html += `<div class="stat-grid">`;
+      metrics.forEach((m) => {
+        html += `<div class="stat-card"><div class="stat-val">${m.value}</div><div class="stat-lbl">${m.label}</div></div>`;
+      });
+      html += `</div>`;
+      // Inline SVG bar chart
+      const bars = [
+        { label: "Jan", h: 60 },
+        { label: "Feb", h: 80 },
+        { label: "Mar", h: 110 },
+        { label: "Apr", h: 90 },
+        { label: "May", h: 140 },
+        { label: "Jun", h: 120 },
+      ];
+      const chartW = 480;
+      const chartH = 160;
+      const bw = 52;
+      const gap = 20;
+      html += `<div class="chart-wrap"><div class="chart-title">Monthly Revenue</div>`;
+      html += `<svg width="${chartW}" height="${chartH + 30}" viewBox="0 0 ${chartW} ${chartH + 30}">`;
+      bars.forEach((b, i) => {
+        const x = i * (bw + gap) + 20;
+        const y = chartH - b.h;
+        html += `<rect x="${x}" y="${y}" width="${bw}" height="${b.h}" rx="6" fill="#3b82f6"/>`;
+        html += `<text x="${x + bw / 2}" y="${chartH + 20}" text-anchor="middle" font-size="12" fill="#64748b">${b.label}</text>`;
+        html += `<text x="${x + bw / 2}" y="${y - 6}" text-anchor="middle" font-size="11" fill="#1e293b" font-weight="600">$${b.h * 100}</text>`;
+      });
+      html += `</svg></div>`;
+    }
+
+    // GET → data table
+    if (getEp && getEp.response_fields?.length > 0) {
+      const fields: any[] = getEp.response_fields.slice(0, 6);
+      html += `<div class="section-title">Data</div>`;
+      html += `<div class="table-wrap"><table><thead><tr>`;
+      fields.forEach((f: any) => {
+        html += `<th>${f.name}</th>`;
+      });
+      html += `</tr></thead><tbody>`;
+      for (let r = 0; r < 4; r++) {
+        html += `<tr>`;
+        fields.forEach((f: any) => {
+          const v = mockVal(f.name, f.type, r);
+          if (f.name.includes("image")) {
+            html += `<td><img src="${v}" width="40" height="40" style="border-radius:6px;"/></td>`;
+          } else {
+            html += `<td>${v}</td>`;
+          }
+        });
+        html += `</tr>`;
+      }
+      html += `</tbody></table></div>`;
+    } else if (dbTable && dbTable.fields?.length > 0) {
+      // fallback: use db table fields
+      const fields: any[] = dbTable.fields.slice(0, 6);
+      html += `<div class="section-title">Data</div>`;
+      html += `<div class="table-wrap"><table><thead><tr>`;
+      fields.forEach((f: any) => { html += `<th>${f.name}</th>`; });
+      html += `</tr></thead><tbody>`;
+      for (let r = 0; r < 4; r++) {
+        html += `<tr>`;
+        fields.forEach((f: any) => {
+          const v = mockVal(f.name, f.type, r);
+          if (f.name.includes("image")) {
+            html += `<td><img src="${v}" width="40" height="40" style="border-radius:6px;"/></td>`;
+          } else {
+            html += `<td>${v}</td>`;
+          }
+        });
+        html += `</tr>`;
+      }
+      html += `</tbody></table></div>`;
+    }
+
+    // POST → form
+    if (postEp && postEp.request_fields?.length > 0) {
+      html += `<div class="section-title">${postEp.summary ?? "Create"}</div>`;
+      html += `<form class="form-card" onsubmit="event.preventDefault()">`;
+      postEp.request_fields.forEach((f: any) => {
+        const inputType =
+          f.type === "integer" || f.type === "float"
+            ? "number"
+            : f.name.includes("email")
+            ? "email"
+            : f.name.includes("password")
+            ? "password"
+            : "text";
+        html += `<div class="field">
+          <label>${f.name}${f.required ? ' <span class="req">*</span>' : ""}</label>
+          <input type="${inputType}" placeholder="${f.name}" ${f.required ? "required" : ""}/>
+        </div>`;
+      });
+      html += `<button type="submit" class="btn-submit">${postEp.summary ?? "Submit"}</button>`;
+      html += `</form>`;
+    }
+
+    html += `</div>`;
+    return html;
+  };
+
+  const navLinks = pages
+    .map(
+      (p, i) =>
+        `<a class="nav-link" href="#" onclick="showPage('page-${p.path.replace(/\//g, "_")}', this)"${i === 0 ? ' style="background:#2563eb;color:#fff;"' : ""}>${p.name}</a>`
+    )
+    .join("");
+
+  const pageBlocks = pages.map(renderPage).join("\n");
+
+  const firstId = pages[0]
+    ? `page-${pages[0].path.replace(/\//g, "_")}`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${appName}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+  
+  /* Topnav */
+  .topnav { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 0 24px; display: flex; align-items: center; gap: 8px; height: 56px; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .topnav-brand { font-weight: 700; font-size: 17px; color: #1e293b; margin-right: 16px; white-space: nowrap; }
+  .nav-link { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; color: #475569; text-decoration: none; transition: background .15s; cursor: pointer; white-space: nowrap; }
+  .nav-link:hover { background: #f1f5f9; color: #1e293b; }
+  
+  /* Content */
+  .content { padding: 32px 32px 64px; max-width: 960px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 24px; }
+  .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin: 28px 0 12px; }
+  
+  /* Table */
+  .table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 12px 16px; color: #334155; border-bottom: 1px solid #f1f5f9; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; }
+  .stat-val { font-size: 28px; font-weight: 700; color: #0f172a; }
+  .stat-lbl { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  /* Chart */
+  .chart-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; display: inline-block; }
+  .chart-title { font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 16px; }
+
+  /* Form */
+  .form-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; max-width: 480px; }
+  .field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 13px; font-weight: 500; color: #374151; }
+  .req { color: #ef4444; }
+  input { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; transition: border .15s; }
+  input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+  .btn-submit { margin-top: 8px; padding: 10px 24px; background: #2563eb; color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s; }
+  .btn-submit:hover { background: #1d4ed8; }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <span class="topnav-brand">${appName}</span>
+  ${navLinks}
+</nav>
+<div class="content">
+${pageBlocks}
+</div>
+<script>
+  function showPage(id, link) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(a => { a.style.background=''; a.style.color=''; });
+    var pg = document.getElementById(id);
+    if (pg) pg.classList.add('active');
+    if (link) { link.style.background='#2563eb'; link.style.color='#fff'; }
+  }
+  // Show first page on load
+  var first = document.getElementById('${firstId}');
+  if (first) first.classList.add('active');
+</script>
+</body>
+</html>`;
+}
+
+// ─── Workspace ───────────────────────────────────────────────────────────────
+
 function WorkspaceInner() {
   const [tab, setTab] = useState("overview");
   const [prompt, setPrompt] = useState("");
@@ -21,17 +264,26 @@ function WorkspaceInner() {
   const [appData, setAppData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>({});
+  const [retryingStage, setRetryingStage] = useState<string | null>(null);
+  const didAutoRun = useRef(false);
 
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (didAutoRun.current) return;
     const p = searchParams.get("prompt");
     if (p) {
+      didAutoRun.current = true;
       const decoded = decodeURIComponent(p);
       setPrompt(decoded);
       runGeneration(decoded);
     }
   }, []);
+
+  const previewHtml = useMemo(
+    () => (appData ? buildPreviewHtml(appData) : ""),
+    [appData]
+  );
 
   const runGeneration = async (p: string) => {
     try {
@@ -39,8 +291,14 @@ function WorkspaceInner() {
       setError(null);
       setAppData(null);
       setStageStatuses({});
+      setRetryingStage(null);
 
       const result = await generateAppStream(p, (update) => {
+        if (update.retrying) {
+          setRetryingStage(update.stage);
+          return;
+        }
+        setRetryingStage(null);
         setStageStatuses((prev) => {
           const next = { ...prev };
           if (update.data || update.stage === "Complete") {
@@ -56,6 +314,7 @@ function WorkspaceInner() {
       });
 
       setStageStatuses(Object.fromEntries(STAGES.map((s) => [s, "done"])));
+      setRetryingStage(null);
       if (result) setAppData(result);
       setTab("overview");
     } catch {
@@ -81,7 +340,7 @@ function WorkspaceInner() {
     URL.revokeObjectURL(url);
   };
 
-  const tabs = ["overview", "database", "api", "auth", "ui"];
+  const tabs = ["overview", "database", "api", "auth", "ui", "preview"];
 
   const componentTypeColor: Record<string, string> = {
     table: "bg-blue-100 text-blue-700",
@@ -107,13 +366,18 @@ function WorkspaceInner() {
               key={t}
               onClick={() => setTab(t)}
               disabled={!appData}
-              className={`w-full text-left px-4 py-3 rounded-xl capitalize ${
+              className={`w-full text-left px-4 py-3 rounded-xl capitalize flex items-center gap-2 ${
                 tab === t
                   ? "bg-blue-600 text-white"
                   : "hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
               }`}
             >
-              {t === "api" ? "API" : t === "ui" ? "UI Schema" : t.charAt(0).toUpperCase() + t.slice(1)}
+              {t === "preview" && (
+                <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${tab === t ? "bg-blue-500 text-white" : "bg-emerald-100 text-emerald-700"}`}>
+                  NEW
+                </span>
+              )}
+              {t === "api" ? "API" : t === "ui" ? "UI Schema" : t === "preview" ? "Preview" : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
@@ -159,6 +423,7 @@ function WorkspaceInner() {
                   <div
                     key={stage}
                     className={`flex items-center gap-4 rounded-xl border p-4 transition-all duration-300 ${
+                      status === "running" && retryingStage === stage ? "border-yellow-300 bg-yellow-50" :
                       status === "running" ? "border-blue-300 bg-blue-50" :
                       status === "done" ? "border-green-200 bg-green-50" :
                       "border-slate-100 bg-slate-50"
@@ -166,21 +431,27 @@ function WorkspaceInner() {
                   >
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                       status === "done" ? "bg-green-100 text-green-700" :
+                      status === "running" && retryingStage === stage ? "bg-yellow-100 text-yellow-700" :
                       status === "running" ? "bg-blue-100 text-blue-700" :
                       "bg-slate-200 text-slate-400"
                     }`}>
                       {status === "done" ? "✓" :
+                       status === "running" && retryingStage === stage ? "↻" :
                        status === "running" ? <span className="h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin block" /> :
                        "·"}
                     </div>
                     <div>
                       <div className={`font-medium ${
                         status === "done" ? "text-green-800" :
+                        status === "running" && retryingStage === stage ? "text-yellow-800" :
                         status === "running" ? "text-blue-800" :
                         "text-slate-400"
                       }`}>{stage}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">
-                        {status === "done" ? "Complete" : status === "running" ? "Processing..." : "Waiting"}
+                      <div className="text-xs mt-0.5">
+                        {status === "done" ? <span className="text-slate-400">Complete</span> :
+                         status === "running" && retryingStage === stage ? <span className="text-yellow-600 font-medium">Rate limit — retrying...</span> :
+                         status === "running" ? <span className="text-slate-400">Processing...</span> :
+                         <span className="text-slate-400">Waiting</span>}
                       </div>
                     </div>
                   </div>
@@ -414,7 +685,6 @@ function WorkspaceInner() {
                   </p>
                 </div>
 
-                {/* Nav items */}
                 {appData.ui_schema.nav_items?.length > 0 && (
                   <div className="bg-white border rounded-2xl p-6">
                     <h2 className="text-lg font-semibold mb-4">Navigation</h2>
@@ -434,7 +704,6 @@ function WorkspaceInner() {
                   </div>
                 )}
 
-                {/* Pages */}
                 <div className="space-y-6">
                   {appData.ui_schema.pages?.map((page: any, pi: number) => (
                     <div key={pi} className="bg-white border rounded-2xl p-6">
@@ -453,7 +722,6 @@ function WorkspaceInner() {
                         </div>
                       </div>
 
-                      {/* Components grid */}
                       {page.components?.length > 0 && (
                         <div className="grid gap-3 sm:grid-cols-2">
                           {page.components.map((comp: any, ci: number) => (
@@ -464,13 +732,11 @@ function WorkspaceInner() {
                                 </span>
                                 <span className="font-medium text-sm">{comp.title || comp.id}</span>
                               </div>
-
                               {comp.data_source && (
                                 <p className="text-xs text-slate-500 mb-2">
                                   Source: <span className="font-mono">{comp.data_source}</span>
                                 </p>
                               )}
-
                               {comp.fields?.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                   {comp.fields.map((f: any, fi: number) => (
@@ -480,7 +746,6 @@ function WorkspaceInner() {
                                   ))}
                                 </div>
                               )}
-
                               {comp.roles_visible?.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1">
                                   {comp.roles_visible.map((r: string, ri: number) => (
@@ -492,11 +757,16 @@ function WorkspaceInner() {
                           ))}
                         </div>
                       )}
+
+                      {(!page.components || page.components.length === 0) && (
+                        <p className="text-sm text-slate-400 italic">
+                          No components defined — see Preview tab for the rendered page.
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
 
-                {/* Flows */}
                 {appData.ui_schema.flows?.length > 0 && (
                   <div className="bg-white border rounded-2xl p-6">
                     <h2 className="text-lg font-semibold mb-4">User Flows</h2>
@@ -519,6 +789,41 @@ function WorkspaceInner() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* PREVIEW */}
+            {tab === "preview" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-4xl font-bold tracking-tight text-slate-900">Live Preview</h1>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Interactive mockup · {appData.system_design?.pages?.length ?? 0} pages · derived from schema
+                    </p>
+                  </div>
+                  <span className="text-xs bg-slate-100 text-slate-500 px-3 py-1.5 rounded-xl">Mock data only</span>
+                </div>
+                <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
+                  {/* Browser chrome */}
+                  <div className="flex items-center gap-2 px-4 py-3 border-b bg-slate-50">
+                    <div className="flex gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-red-400" />
+                      <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                      <div className="w-3 h-3 rounded-full bg-green-400" />
+                    </div>
+                    <div className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-400 font-mono ml-2">
+                      {appData.intent?.app_name?.toLowerCase().replace(/\s+/g, "-") ?? "app"}.preview
+                    </div>
+                  </div>
+                  <iframe
+                    srcDoc={previewHtml}
+                    className="w-full"
+                    style={{ height: "620px", border: "none" }}
+                    sandbox="allow-scripts allow-same-origin"
+                    title="App Preview"
+                  />
+                </div>
               </div>
             )}
           </>
